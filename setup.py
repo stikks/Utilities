@@ -20,8 +20,6 @@ setup(name='pyUtilities',
           'phonenumbers',
           'user-agents',
           'pymongo',
-          'odoorpc',
-          'xmlrpclib',
           'influxdb',
           'pygeocoder'
       ])
