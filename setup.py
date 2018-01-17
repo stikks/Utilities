@@ -21,5 +21,8 @@ setup(name='pyUtilities',
           'user-agents',
           'pymongo',
           'influxdb',
-          'pygeocoder'
+          'pygeocoder',
+          'htmlmin',
+          'pillow',
+          'pyaes'
       ])

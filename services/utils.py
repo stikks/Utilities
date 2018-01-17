@@ -1,4 +1,5 @@
 import re
+import base64
 import json
 from unicodedata import normalize
 from datetime import datetime, date, timedelta
@@ -12,9 +13,15 @@ import random
 import phonenumbers
 import hashlib
 import uuid
+import pyaes
+
+import htmlmin
+from PIL import Image as PImage
 
 from pygeocoder import Geocoder
 
+
+aes_secret_key = os.environ.get("AES_SECRET_KEY","")
 _slugify_punct_re = re.compile(r'[\t !"#$%&\'()*\-/<=>?@\[\\\]^_`{|},.]+')
 
 
@@ -288,6 +295,18 @@ def is_list(value):
     return isinstance(value, (list, tuple))
 
 
+def check_image_size(src, dimensions=(200, 200)):
+    """ Check's image dimensions """
+    img = PImage.open(src)
+    width, height = img.size
+    d_width, d_height = dimensions
+
+    if int(width) == int(d_width) and int(height) == int(d_height):
+        return True
+    else:
+        return False
+
+
 def md5_hash(value):
     """ create the md5 hash of the string value """
     return hashlib.md5(value).hexdigest()
@@ -392,3 +411,216 @@ def compute_lat_lng(address):
     except Exception as e:
         print(e)
         return None
+
+
+def check_extension(filename, extensions=("jpg", "jpeg", "png", "gif",)):
+    """ Checks if the filename contains any of the specified extensions """
+
+    bits = filename.split(".")
+    bits.reverse()
+
+    ext = bits[0].lower()
+
+    return ext in extensions
+
+
+def encrypt_3des(des_key, text):
+    """
+        Encrypt the specified value using the 3DES symmetric encryption algorithm
+        :param des_key: encryption key
+        :param text: parameter to encrypt
+        :returns cipher_text: 3DES encrypted values
+    """
+
+    padder = padding.PKCS7(algorithms.TripleDES.block_size).padder()
+    padded_text = padder.update(text) + padder.finalize()
+
+    cipher = Cipher(algorithms.TripleDES(des_key), mode=modes.ECB(), backend=default_backend())
+    encryptor = cipher.encryptor()
+    cipher_text = encryptor.update(padded_text) + encryptor.finalize()
+
+    return cipher_text
+
+
+def decrypt_3des(des_key, cipher_text):
+    """
+        Decrypt the specified value using the 3DES symmetric decryption algorithm
+        :param cipher_text: parameter to decrypt
+        :param des_key: decryption key
+        :returns u: plain text value
+    """
+
+    cipher = Cipher(algorithms.TripleDES(des_key), modes.ECB(), backend=default_backend())
+    decryptor = cipher.decryptor()
+    padded_text = decryptor.update(cipher_text) + decryptor.finalize()
+
+    unpadder = padding.PKCS7(algorithms.TripleDES.block_size).unpadder()
+    text = unpadder.update(padded_text) + unpadder.finalize()
+
+    return text
+
+
+def encrypt_data(des_key, data):
+    """ encrypt the data sent in. Will return the 3des version of the dictionary """
+
+    print json.dumps(data, indent=2)
+    des_key = build_3des_key(des_key)
+    encrypted_data = dict()
+
+    for k, v in data.items():
+        encrypted_data[k] = base64.b64encode(encrypt_3des(des_key, str(v)))
+
+    return encrypted_data
+
+
+def decrypt_data(des_key, data):
+    """ decrypt the data sent in. Will return the plain version of the dictionary """
+
+    print json.dumps(data, indent=2)
+    des_key = build_3des_key(des_key)
+    decrypted_data = dict()
+
+    for k, v in data.items():
+        decrypted_data[k] = decrypt_3des(des_key, base64.b64decode(str(v)))
+
+    return decrypted_data
+
+
+def build_3des_key(key):
+    """ build the key for 3des using md5 digest"""
+
+    m = hashlib.md5()
+    m.update(key)
+    des_key = m.digest()
+
+    return des_key
+
+
+def build_aes_key(key):
+    """build an aes key of 16/24/32bytes, defaults to 16byte"""
+
+    m = hashlib.md5()
+    m.update(key)
+    aes_key = m.hexdigest()
+
+    return aes_key
+
+
+def encrypt_aes(aes_key, text):
+    """
+        Encrypt the specified value using the 3DES symmetric encryption algorithm
+        :param aes_key: encryption key
+        :param text: parameter to encrypt
+        :returns cipher_text: AES encrypted values
+    """
+
+    cipher = Cipher(algorithms.AES(aes_key), mode=modes.CTR(), backend=default_backend())
+    encryptor = cipher.encryptor()
+    cipher_text = encryptor.update(text) + encryptor.finalize()
+
+    return cipher_text
+
+
+def encrypt_pyaes(aes_key, text):
+    """encrypt ciphertext using ctr mode of the pyaes library"""
+
+    aes = pyaes.AESModeOfOperationCTR(aes_key)
+    ciphertext = aes.encrypt(text)
+
+    return ciphertext
+
+
+def decrypt_pyaes(aes_key, text):
+    """decrypt ciphertext using ctr mode of the pyaes library"""
+
+    aes = pyaes.AESModeOfOperationCTR(aes_key)
+    plaintext = aes.decrypt(text)
+
+    return plaintext
+
+
+def encrypt_data_pyaes(key, data):
+    """ encrypt the data sent in. Will return the aes version of the dictionary """
+
+    # print json.dumps(data, indent=2)
+    aes_key = build_aes_key(key)
+    # print aes_key, 'enc key'
+    encrypted_data = dict()
+
+    for k, v in data.items():
+        encrypted_data[k] = base64.b64encode(encrypt_pyaes(aes_key, str(v)))
+
+    return encrypted_data
+
+
+def decrypt_data_pyaes(key, data):
+    """ decrypt the data sent in. Will return the plain version of the dictionary """
+
+    print json.dumps(data, indent=2)
+    aes_key = build_aes_key(key)
+    print aes_key, 'dec key'
+    decrypted_data = dict()
+
+    for k, v in data.items():
+        decrypted_data[k] = decrypt_pyaes(aes_key, base64.b64decode(str(v)))
+
+    return decrypted_data
+
+
+def dict_update(dic, data):
+    """
+
+    :param dic: the dictionary to be updated
+    :param data: the data to use to update
+    :return: dict
+    """
+
+    new_dict = dic.update(data)
+    return json.dumps(dic)
+
+
+
+class ObjectPayload(object):
+    def __init__(self, d):
+        for a, b in d.items():
+            if isinstance(b, (list, tuple)):
+                setattr(self, a, [ObjectPayload(x) if isinstance(x, dict) else x for x in b])
+            else:
+                setattr(self, a, ObjectPayload(b) if isinstance(b, dict) else b)
+
+
+def encrypt_form(enc_key, form, form_class):
+
+    data = encrypt_data_pyaes(enc_key, form.data)
+    new_obj = ObjectPayload(data)
+    form = form_class(obj=new_obj)
+
+    return form.data
+
+
+def encrypt_dict_to_string(**data):
+    string_data = json.dumps(data)
+    aes_key = build_aes_key(aes_secret_key)
+    aes = pyaes.AESModeOfOperationCTR(aes_key)
+    ciphertext = aes.encrypt(string_data)
+
+    return base64.b64encode(ciphertext)
+
+
+def decrypt_string_to_dict(ciphertext):
+    aes_key = build_aes_key(aes_secret_key)
+    aes = pyaes.AESModeOfOperationCTR(aes_key)
+    string_data = aes.decrypt(base64.b64decode(ciphertext))
+
+    data = json.loads(string_data)
+
+    return data
+
+
+def render_domain_template(name, **kwargs):
+    from flask import render_template
+    template_name = name
+
+    _html = render_template(template_name, **kwargs)
+
+    return htmlmin.minify(_html, remove_empty_space=True, remove_comments=True)
