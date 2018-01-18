@@ -130,7 +130,6 @@ class ServiceLabs(object):
             def all(cls):
                 """
                 retrieve all model object matching model_class
-                :param obj_id:
                 :return: object
                 """
                 result = Base.query.all()

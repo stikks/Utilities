@@ -2,7 +2,7 @@ import re
 import base64
 import json
 from unicodedata import normalize
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 from email.utils import formatdate
 from calendar import timegm
 from user_agents import parse
@@ -16,6 +16,9 @@ import uuid
 import pyaes
 
 import htmlmin
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.backends import default_backend
 from PIL import Image as PImage
 
 from pygeocoder import Geocoder
@@ -153,7 +156,7 @@ def copy_dict(source, destination):
     Populates a destination dictionary with the values from the source
 
     :param source: source dict to read from
-    :param dest: destination dict to write to
+    :param destination: destination dict to write to
 
     :returns: destination
     :rtype: dict
@@ -407,7 +410,7 @@ def generate_code(prefix, length):
 def compute_lat_lng(address):
     try:
         result = Geocoder.geocode(address)
-        return (result.longitude, result.latitude)
+        return getattr(result, 'longitude'), getattr(result, 'result.latitude')
     except Exception as e:
         print(e)
         return None
@@ -514,7 +517,7 @@ def encrypt_aes(aes_key, text):
         :returns cipher_text: AES encrypted values
     """
 
-    cipher = Cipher(algorithms.AES(aes_key), mode=modes.CTR(), backend=default_backend())
+    cipher = Cipher(algorithms.AES(aes_key), mode=modes.CTR(nonce=''), backend=default_backend())
     encryptor = cipher.encryptor()
     cipher_text = encryptor.update(text) + encryptor.finalize()
 
@@ -575,9 +578,8 @@ def dict_update(dic, data):
     :return: dict
     """
 
-    new_dict = dic.update(data)
+    dic.update(data)
     return json.dumps(dic)
-
 
 
 class ObjectPayload(object):
@@ -602,15 +604,15 @@ def encrypt_dict_to_string(**data):
     string_data = json.dumps(data)
     aes_key = build_aes_key(aes_secret_key)
     aes = pyaes.AESModeOfOperationCTR(aes_key)
-    ciphertext = aes.encrypt(string_data)
+    cipher_text = aes.encrypt(string_data)
 
-    return base64.b64encode(ciphertext)
+    return base64.b64encode(cipher_text)
 
 
-def decrypt_string_to_dict(ciphertext):
+def decrypt_string_to_dict(cipher_text):
     aes_key = build_aes_key(aes_secret_key)
     aes = pyaes.AESModeOfOperationCTR(aes_key)
-    string_data = aes.decrypt(base64.b64decode(ciphertext))
+    string_data = aes.decrypt(base64.b64decode(cipher_text))
 
     data = json.loads(string_data)
 

@@ -24,5 +24,6 @@ setup(name='pyUtilities',
           'pygeocoder',
           'htmlmin',
           'pillow',
-          'pyaes'
+          'pyaes',
+          'cryptography'
       ])
