@@ -626,3 +626,7 @@ def render_domain_template(name, **kwargs):
     _html = render_template(template_name, **kwargs)
 
     return htmlmin.minify(_html, remove_empty_space=True, remove_comments=True)
+
+
+def random_string(size=16, chars=string.ascii_uppercase + string.digits):
+    return ''.join(random.choice(chars) for _ in range(size))
