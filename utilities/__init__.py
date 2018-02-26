@@ -1,4 +1,4 @@
-from utils import *
+from utilities.utils import *
 from logging import handlers, INFO, Formatter, getLogger
 
 
