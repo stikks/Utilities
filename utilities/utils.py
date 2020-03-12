@@ -25,8 +25,6 @@ from pygeocoder import Geocoder
 
 
 aes_secret_key = os.environ.get("AES_SECRET_KEY","")
-_slugify_punct_re = re.compile(r'[\t !"#$%&\'()*\-/<=>?@\[\\\]^_`{|},.]+')
-
 
 class Payload(object):
     def __init__(self, **kwargs):
@@ -70,7 +68,8 @@ def slugify(text, delim=u'-'):
     :rtype: unicode
     """
 
-    result = []
+    result = list()
+    _slugify_punct_re = re.compile(r'[\t !"#$%&\'()*\-/<=>?@\[\\\]^_`{|},.]+')
     for word in _slugify_punct_re.split(text.lower()):
         # ensured the unicode(word) because str broke the code
         word = normalize('NFKD', unicode(word)).encode('ascii', 'ignore')
